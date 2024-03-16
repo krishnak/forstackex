@@ -256,11 +256,7 @@ public class OptionTileObjectController extends ScripTileObjectController {
         });
 
     }
-    public void setVolume(int volume)
-    {
-        //this.volumeTradedIntheday.set(volume/lotsize);
-        scripTileView.getVolume().setText(String.format("%,d",(volume/lotsize)));
-    }
+
    
     public ScripTileObjectController getUnderlying()
     {
