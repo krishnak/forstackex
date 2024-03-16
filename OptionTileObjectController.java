@@ -1,9 +1,5 @@
 package krishna.core.dataobject;
 
-import eu.hansolo.tilesfx.Tile;
-import eu.hansolo.tilesfx.TileBuilder;
-import eu.hansolo.tilesfx.Tile.SkinType;
-import eu.hansolo.tilesfx.Tile.TextSize;
 import javafx.application.Platform;
 import javafx.beans.InvalidationListener;
 import javafx.beans.Observable;
@@ -157,9 +153,6 @@ public class OptionTileObjectController extends ScripTileObjectController {
 
         
 
-        orderTileView.getSimulator().setOnMouseClicked(new simulatePrices());
-
-        orderTileView.getDelta().setOnMouseClicked(new SparkLineTile());
 
         buttonPressed.setCaller(this);
 
@@ -206,177 +199,7 @@ public class OptionTileObjectController extends ScripTileObjectController {
 
     }
 
-    private class simulatePrices implements EventHandler<MouseEvent> {
-        private ObservableList<String[]> simulatedPrice = FXCollections.observableArrayList();
-        private SimpleDoubleProperty localVolatiltyProperty = new SimpleDoubleProperty();
-        private SimpleDoubleProperty localUnderlyingPriceProperty = new SimpleDoubleProperty();
-        private  SimulatorPopupView smPopup;
-        private TableView <String[]>table;
-        private TableColumn<String[],String> tc;
-    
-        public simulatePrices()
-        {
-            localVolatiltyProperty.bind(volatilityProperty);
-                 
-            localVolatiltyProperty.addListener(new ChangeListener<Number>() {
-
-                @Override
-                public void changed(ObservableValue<? extends Number> observable, Number oldValue, Number newValue) {
-                    if(priceSimulatorStage == null)
-                    {
-
-                    }
-                    else
-                    {
-                        //System.out.println(localVolatiltyProperty.doubleValue()+"");
-                        if(priceSimulatorStage.isShowing())
-                            populateDataTable(false);
-                    }                
-                }
-                
-            });
-
-            
-
-            smPopup = new SimulatorPopupView();
-            table = smPopup.getOrderpricetable();
-            table.setEditable(false);
-            int size = table.getColumns().size();
-            if(size>0)
-            {
-                //table.getColumns().remove(size-1);
-                table.getColumns().clear();
-                //size = table.getColumns().size();
-            }
-            table.getSelectionModel().setCellSelectionEnabled(false);
-            table.getSelectionModel().select(6);
-            table.widthProperty().addListener(new ChangeListener<Number>() {
-
-                @Override
-                public void changed(ObservableValue<? extends Number> observable, Number oldValue, Number newValue) {
-
-                    Pane p =(Pane)table.lookup("TableHeaderRow");
-                    if(p!=null && p.isVisible()) {
-
-                    p.setMaxHeight(0);
-                    p.setPrefHeight(0);
-                    p.setMinHeight(0);
-                    p.setVisible(false);
-                    p.setManaged(false);                
-                    }
-                    
-                }
-            });
-
-            
-            
-        }
-        public synchronized void populateDataTable(boolean redrawcolumn)
-        {
-            //System.out.println("Size of simulatedPrice array list is "+simulatedPrice.size());
-            simulatedPrice.clear();
-            //System.out.println("Size of simulatedPrice array list is "+simulatedPrice.size());
-
-         //   table.getColumns().clear();
-            float startingPrice = roundToNearestPrice(underLying.lastTradedPrice.floatValue()-(underLying.lastTradedPrice.floatValue()*3/100));
-            //System.out.println("Starting price "+startingPrice);
-            float multiplesOff = roundToNearestPrice(.3f*underLying.lastTradedPrice.floatValue()/100);
-            //System.out.println("Starting price "+startingPrice+", Multiples off "+multiplesOff);
-
-            float startingVolatility = (float)((volatilityProperty.get()*100)-1.2);
-            float multiplesOffV = 0.2f;
-            if(redrawcolumn)
-            {
-                for(int i =0;i<21;i++) // we need 1 extra column than the number of prices
-                {
-                    tc = new TableColumn<>();
-                    if(i==11)
-                      tc.setStyle("-fx-background-color:yellowgreen");
-                    tc.setPrefWidth(55);
-                    tc.setSortable(false);
-                    table.getColumns().add(tc);
-                    final int j =i;
-                    tc.setCellValueFactory(new Callback<TableColumn.CellDataFeatures<String[],String>,ObservableValue<String>>() {
-    
-                        @Override
-                        public ObservableValue<String> call(CellDataFeatures<String[], String> param) {
-                            return new SimpleStringProperty(param.getValue()[j]);
-                        }
-                        
-                    });
-                    
-                  
-                }
-            }
-            String datacolumn[] = new String[21];
-            datacolumn[0]="V/P";
-            for(int i=1;i<21;i++)
-            {
-                datacolumn[i]=fasterFormatter.formatDouble((startingPrice+(multiplesOff*(i-1))),2,false);
-            } 
-            for(int i =0;i<12;i++)
-            {
-                String datarow[] = new String[21];
-                double volatilityforthisiteration = (startingVolatility+(i*multiplesOffV))/100;//this is in decimal
-                      
-                datarow[0]=String.format("%.2f",startingVolatility+(i*multiplesOffV))+"%";// this is inpercentage 
-      
-                for(int k=1;k<21;k++)
-                {
-                    //if(k==0)
-                    //    datarow[k]=String.format("%.2f",startingVolatility+(i*multiplesOffV))+"%";
-                    //else
-                    {
-                        double underlyingpriceforthisiteration = startingPrice+(multiplesOff*(k-1));
-              //          System.out.println("V is "+volatilityforthisiteration+", priceofunderlying used "+underlyingpriceforthisiteration);
-                        datarow[k]=String.format("%.2f",vp.computeOptionPrice( volatilityforthisiteration, underlyingpriceforthisiteration, strikePrice, callRput)[0]);
-
-                        //datarow[k]=String.format("%.2f",startingPrice+(multiplesOff*k)); // this needs to be dynamic
-                    }
-                }
-                simulatedPrice.add(datarow);
-                
-            }
-            
-            table.setItems(simulatedPrice);
-            
-          //  table.getSelectionModel().select(6,table.getColumns().get(11));
-            //table.scrollToColumnIndex(11);
-        //    table.scrollTo(6);
-        
-            
-        }
-        @Override
-        public void handle(MouseEvent event) {
-            if(priceSimulatorStage==null)
-            {
-                //if you check for not null, it will crash if it's null
-            }
-            else
-            {
-                priceSimulatorStage.show();
-                event.consume();
-                return;
-            }
-                
-
-            priceSimulatorStage = new Stage();
-            
-            
-            populateDataTable(true);
-            
-            Scene scene = new Scene(smPopup);
-        
-            priceSimulatorStage.setTitle("Price Simulator for "+underLying.getScripName().get()+" "+(int)strikePrice+" "+callRput.toString());
-            priceSimulatorStage.setScene(scene);
-            priceSimulatorStage.sizeToScene();
-            priceSimulatorStage.setResizable(false);
-
-            priceSimulatorStage.show();
-        }
-    }
-
-
+  
     public OptionOrderTileView getOptionOrderTileView()
     {
         return orderTileView;
@@ -471,55 +294,4 @@ public class OptionTileObjectController extends ScripTileObjectController {
 
    }
    
-   private class SparkLineTile implements EventHandler<MouseEvent>
-   {
-        private Tile sparkLineTile;
-        public SparkLineTile()
-        {
-
-            sparkLineTile = TileBuilder.create()
-                                    .skinType(SkinType.SPARK_LINE)
-                                    .prefSize(200, 150   )
-                                    .title("Volatility "+(int)strikePrice+callRput.toString())
-                                    .unit("%")
-                                    .gradientStops(new Stop(0, Tile.GREEN),
-                                                    new Stop(0.5, Tile.YELLOW),
-                                                    new Stop(1.0, Tile.RED))
-                                    .strokeWithGradient(true)
-                                    .smoothing(true)
-                                    .textSize(TextSize.BIGGER)
-                                    .decimals(3)
-                                    .averagingPeriod(60)
-                                    .build();
-                                    
-            sparkLineTile.valueProperty().bind(volatilityProperty);
-
-        }
-
-        @Override
-        public void handle(MouseEvent event) {
-
-            if(volatilityTileStage==null)
-            {
-                //if you check for not null, it will crash if it's null
-            }
-            else
-            {
-                volatilityTileStage.show();
-                event.consume();
-                return;
-            }
-            volatilityTileStage = new Stage();
-            volatilityTileStage.setTitle(underLying.ScripName.get());
-            Scene scene = new Scene(sparkLineTile);
-            
-            volatilityTileStage.setScene(scene);
-            volatilityTileStage.sizeToScene();
-            volatilityTileStage.setResizable(false);
-
-            volatilityTileStage.show();
-        
-        }
-        
-   }
 }
